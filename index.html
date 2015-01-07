@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8" />
+	<title>Duck Shooter</title>
+	<!-- css -->
+	<style type="text/css">
+		body {
+			background-color: #dea;
+			padding: 0;
+			margin: 0;
+			margin-top: -21px;
+			cursor:url(images/target.png) 24 24,auto;
+			-webkit-user-select: none;
+			-khtml-user-select: none;
+			-moz-user-select: none;
+			-o-user-select: none;
+			user-select: none;
+			background-image: url("images/background.jpg");
+			background-repeat: no-repeat;
+			background-size: cover;
+			font-family: "Comic Sans MS";
+			overflow: hidden;
+		}
+		a, a:link, a:hover, a:visited, a:active {
+			text-decoration: none;
+			color: green;
+		}
+
+		#header {
+			text-align: center;
+			width: 100%;
+			height: 50px;
+			border-bottom: 2px dashed #fff;/* #64f;*/
+			position: relative;
+			z-index: 100;
+		}
+		#header h1 {
+			color: #fff;/*64f;*/
+			position: relative;
+			left: -80px;
+			text-shadow: 3px 3px 5px #0ff;
+			width: 70%;
+		}
+		#gameBody {
+			position: relative;
+		}
+		#bullet {
+			display: none;
+			position: absolute;
+			z-index: 100;
+		}
+		#points, #play, #stop, #mute {
+			font-size: 30px;
+			float: right;
+			margin-right: 30px;
+			margin-top: -60px;
+			position: relative;
+			z-index: 1000;
+		}
+		#play, #stop, #mute {
+			float: left;
+			margin: 0 20px;
+			background-color: #afa;
+			padding: 0 10px;
+			border: 2px solid green;
+			border-top: none;
+			border-bottom-right-radius: 10px;
+			border-bottom-left-radius: 10px;
+		}
+		#clock {
+			font-size: 30px;
+			float: right;
+			margin-right: 15%;
+			margin-top: -60px;
+			position: relative;
+			z-index: 1000;
+		}
+		#level {
+			font-size: 30px;
+			float: right;
+			margin-right: 25%;
+			margin-top: -60px;
+			position: relative;
+			z-index: 1000;
+		}
+		#ouch {
+			z-index: 20;
+			position: absolute;
+			display: none;
+		}
+		#fish {
+			z-index: 1;
+			position: absolute;
+			width: 10%;
+		}
+		#points, #clock, #level {
+			color: #fff;
+			text-shadow: 3px 3px 5px #0ff;
+		}
+		#resultMsg {
+			position: absolute;
+			display: none;
+			color: red;
+			font-size: 50px;
+			z-index: 1000;
+			font-weight: bold;
+			text-align: center;
+		}
+
+		img.bush {
+			z-index: 10;
+			position: absolute;
+			width: 20%;
+		}
+		img.duck {
+			z-index: 5;
+			position: absolute;
+			width: 10%;
+		}
+		#taillow {
+			z-index: 5;
+			position: absolute;
+			width: 10%;
+			display: none;
+		}
+	</style>
+
+	<!-- Jquery -->
+	<script src="js/jquery-1.11.1.min.js"></script>
+
+	<!-- Shooter game -->
+	<script type="text/javascript">
+		// Global variables
+		var numTargets = 5;
+		var screenWidth = window.innerWidth;
+		var screenHeight = window.innerHeight;
+		var topGame = 50;
+		var score = 0;
+		var duckHeight = 0; // setted automatically
+		var jumpHeight = 200; // percentage TODO
+		var segundos = 60;
+		var gameVelocity = 700;
+		var level = 1;
+		var nTaillows = 10;
+		var criteria = [segundos*1.1,segundos*1,segundos*0.9,segundos*0.8,segundos*0.7,segundos*0.6,segundos*0.5,segundos*0.4,segundos*0.3,segundos*0.2];
+
+		// Setting audio
+		var bangSound = document.createElement('audio');
+        bangSound.setAttribute('src', 'sounds/bang.wav');
+        var duckSound = document.createElement('audio');
+        duckSound.setAttribute('src', 'sounds/duck.wav');
+        var birdSound = document.createElement('audio');
+        birdSound.setAttribute('src', 'sounds/bird.wav');
+        var backgroundSound = document.createElement('audio');
+        backgroundSound.setAttribute('src', 'sounds/background.mp3');
+        backgroundSound.setAttribute('loop', 'loop');
+
+		// Init function
+		function init() {
+			$('img').on('dragstart', function(event) { event.preventDefault(); });
+
+			var gameBodyHeight = screenHeight-60;
+			$("#gameBody").css("height",gameBodyHeight+"px");
+
+			var step = screenWidth/(numTargets+1);
+			$(".bush").each(function (index, element) {
+				$(element).css("margin-top",(gameBodyHeight-$(element).height())+"px");
+				$(element).css("margin-left",(step*(index+1)-($(element).width()/2))+"px");
+			});
+			$(".duck").each(function (index, element) {
+				$(element).css("margin-top",(gameBodyHeight-$(element).height()-10)+"px");
+				$(element).css("margin-left",(step*(index+1)-($(element).width()/2)+20)+"px");
+				duckHeight = $(element).css("margin-top").replace("px","");
+			});
+			$("#fish").css({
+				"margin-top":((screenHeight-topGame)*0.57)+"px",
+				"margin-left":(screenWidth*0.4)+"px"
+			});
+			$("#clock").text("Time: "+segundos);
+			backgroundSound.play();
+		}
+
+		// Taillow control
+		function taillowControl(startPos, angle) {
+			var diffX = 0;
+			if(startPos[0] > screenWidth/2) {
+				$("#taillow").attr("src","images/taillow1.png");
+				diffX = -10;
+			}
+			else {
+				$("#taillow").attr("src","images/taillow2.png");
+				diffX = 10;
+			}
+			$("#taillow").css({
+				"margin-left":startPos[0],
+				"margin-top":startPos[1],
+				"display":"block"
+			});
+			var x = startPos[0];
+			var y = startPos[1];
+			var angleInit = 360;
+			taillowInterval = setInterval(function() {
+				angleInit -= angle;
+				x += diffX;
+				y += degreesToRadians(angleInit);
+				$("#taillow").animate({
+					"margin-left":x,
+					"margin-top":y
+				}, 10, "linear");
+			}, 10);
+			setTimeout(function(){
+				clearInterval(taillowInterval);
+			}, segundos*1000/(nTaillows+5));
+		}
+		function degreesToRadians(degrees) {
+			return degrees * (Math.PI/180);
+		}
+
+		// Shoot event
+		function enableShoot() {
+			$( "#gameBody" ).click(function(event) {
+				$("#bullet").css({
+					"display":"block", 
+					"margin-left": (event.pageX-($("#bullet").width()/2))+"px", 
+					"margin-top": (event.pageY-topGame-($("#bullet").height()/2))+"px"
+				}).delay(50).fadeOut(10);
+				bangSound.play();
+			});
+			$(".duck").click(function(event) {
+				if(this.src.indexOf("duck.gif") > -1) {
+					score++;
+				} else {
+					score--;
+				}
+				$("#points").text("Score: "+score);
+				showOuch(Math.floor(Math.random()*3)+1);
+				setTimeout(function() {$("#ouch").css("display","none");}, 300);
+				duckSound.play();
+			});
+			$("#taillow").click(function(event) {
+				score+=10;
+				$("#points").text("Score: "+score);
+				showOuch(Math.floor(Math.random()*3)+1);
+				setTimeout(function() {$("#ouch").css("display","none");}, 300);
+				birdSound.play();
+			});
+		}
+
+		// Just to show 3 types of ouch
+		function showOuch(num) {
+			switch(num) {
+				case 1:
+					$("#ouch").attr("src","images/ouch1.gif").css({
+						"margin-left":(event.pageX-100)+"px",
+						"margin-top":(event.pageY-200)+"px",
+						"display":"block"
+					});
+					break;
+				case 2:
+					$("#ouch").attr("src","images/ouch2.gif").css({
+						"margin-left":(event.pageX-50)+"px",
+						"margin-top":(event.pageY-200)+"px",
+						"display":"block"
+					});
+					break;
+				case 3:
+					$("#ouch").attr("src","images/ouch3.gif").css({
+						"margin-left":(event.pageX-20)+"px",
+						"margin-top":(event.pageY-200)+"px",
+						"display":"block"
+					});
+					break;
+				default:
+					$("#ouch").attr("src","images/ouch1.gif").css({
+						"margin-left":(event.pageX-80)+"px",
+						"margin-top":(event.pageY-200)+"px",
+						"display":"block"
+					});
+					break;
+			}
+		}
+
+		// Random Appear
+		// TODO - Melhorar
+		function randomAppear() {
+			var jumpHeightLocal = duckHeight - jumpHeight;
+			gameIntervalSetter = setInterval(function(){
+
+				gameInterval = setInterval(function() {
+
+					var indexNow = Math.floor(Math.random()*numTargets) + 0;
+					$(".duck").each(function (index, element) {
+						if(index == indexNow) {
+							var daisyAppear = (Math.floor(Math.random()*5)+1==1) ? true:false;
+							if(daisyAppear) {
+								element.src = "images/daisy.png";
+								$(element).css({
+									"width":"6%",
+									"margin-left":(parseInt($(element).css("margin-left").replace("px",""))+20)+"px"
+								});
+							} else if(element.src.indexOf("daisy.png") > -1) {
+								element.src = "images/duck.gif";
+								$(element).css({
+									"width":"10%",
+									"margin-left":(parseInt($(element).css("margin-left").replace("px",""))-20)+"px"
+								});
+							}
+							$(element).animate({
+								"margin-top": jumpHeightLocal+"px"
+							}, gameVelocity).delay(gameVelocity-300).animate({
+								"margin-top": duckHeight+"px"
+							}, gameVelocity);
+						}
+					});
+
+				} (Math.floor((Math.random() * gameVelocity+500) + 100)));
+				clearInterval(gameInterval);
+
+			}, gameVelocity+500);
+		}
+
+		// Next level
+		function nextLevel() {
+			if(score >= criteria[level-1] && level < 10) {
+				level++;
+				gameVelocity-=40;
+				$("#resultMsg").text("Level "+level+"!!!").css({
+					"margin-top":(topGame+150)+"px",
+					"margin-left":(screenWidth/2-100)+"px",
+					"display":"block"
+				});
+				setTimeout(function(){
+					$("#resultMsg").text("Level "+level+"!!!").css({
+						"display":"none"
+					});
+					play();
+				},1000);
+			} else if(score <= criteria[level-1] && level < 11) {
+				$("#resultMsg").html("Game Over!!!<br>Try Again!!!").css({
+					"margin-top":(topGame+150)+"px",
+					"margin-left":(screenWidth/2-100)+"px",
+					"display":"block"
+				});
+				setTimeout(function(){
+					$("#resultMsg").css({
+						"display":"none"
+					});
+				},2000);
+			}
+
+			if(level == 10) {
+				$("#level").text("You Win!!!");
+			}
+		}
+
+		// Play
+		var active = false;
+		function play() {
+			if(!active) {
+				score = 0;
+				$("#points").text("Score: "+score);
+				randomAppear();
+				setTimer();
+				setTaillow();
+				active = true;
+				$("#play").css({
+					"color":"#880",
+					"text-decoration":"overline"
+				});
+				$("#stop").css({
+					"color":"green",
+					"text-decoration":"none"
+				});
+			}
+		}
+
+		// Stop
+		function stop() {
+			clearInterval(gameInterval);
+			clearInterval(gameIntervalSetter);
+			clearInterval(timer);
+			clearInterval(birdInterval);
+			$("#clock").text("Time: "+segundos);
+			active = false;
+			$("#play").css({
+				"color":"green",
+				"text-decoration":"none"
+			});
+			$("#stop").css({
+				"color":"#880",
+				"text-decoration":"overline"
+			});
+		}
+
+		// Mute
+		var muted = false;
+		function mute() {
+			muted = !muted;
+			backgroundSound.muted = muted;
+			duckSound.muted = muted;
+			bangSound.muted = muted;
+			if(muted) {
+				$("#mute").css({
+					"color":"#880",
+					"text-decoration":"overline"
+				});
+			} else {
+				$("#mute").css({
+					"color":"green",
+					"text-decoration":"none"
+				});
+			}
+		}
+
+		// Set the timer
+		var timer;
+		function setTimer() {
+			var s=segundos;
+			timer = setInterval(function() {
+				s--;
+				$("#clock").text("Time: "+s);
+			},1000);
+			setTimeout(function(){stop(); nextLevel();},segundos*1000);
+		}
+
+		// Set the Taillow
+		function setTaillow() {
+			birdInterval = setInterval(function() {
+				var direcao = 0-$("#taillow").width();
+				var rand = Math.floor(Math.random()*2+1);
+				if(rand==2)
+					direcao = screenWidth;
+
+				taillowControl([direcao, Math.floor(Math.random()*300)], Math.random()*10+2);
+			}, segundos*1000/nTaillows);
+		}
+
+		$(window).load(function() {
+			init();
+			enableShoot();
+		});
+	</script>
+</head>
+<body>
+	<!-- Header -->
+	<div id="header">
+		<a href="#" onclick="play();" id="play">Play</a>
+		<a href="#" onclick="stop();" id="stop">Stop</a>
+		<a href="#" onclick="mute();" id="mute">Mute</a>
+		<h1>Duck Shooter</h1>
+		<span id="level">Level: 1</span>
+		<span id="clock">Time: 0</span>
+		<span id="points">Score: 0</span>
+	</div>
+	
+	<!-- Game body -->
+	<div id="gameBody">
+		<!-- Bushes -->
+		<img src="images/bush.gif" class="bush" />
+		<img src="images/bush.gif" class="bush" />
+		<img src="images/bush.gif" class="bush" />
+		<img src="images/bush.gif" class="bush" />
+		<img src="images/bush.gif" class="bush" />
+
+		<!-- Ducks -->
+		<img src="images/duck.gif" class="duck" />
+		<img src="images/duck.gif" class="duck" />
+		<img src="images/duck.gif" class="duck" />
+		<img src="images/duck.gif" class="duck" />
+		<img src="images/duck.gif" class="duck" />
+
+		<!-- Taillow -->
+		<img src="images/taillow1.png" id="taillow" />
+
+		<!-- Background Animation -->
+		<img src="images/fish.gif" id="fish" />
+
+		<!-- Bullet -->
+		<img src="images/explosion.png" id="bullet">
+
+		<!-- Ouch -->
+		<img src="images/ouch1.gif" id="ouch" />
+
+		<!-- Result Message -->
+		<span id="resultMsg"></span>
+	</div>
+</body>
+</html>
