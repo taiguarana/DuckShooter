@@ -11,4 +11,4 @@ There is no "How to Play" but it's very easy:
 * There are 10 levels! Can you get there?!?!
  
 
-* The images and sounds were picked from the web
+Ps.: The images and sounds were picked from the web
